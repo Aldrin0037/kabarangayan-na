@@ -15,8 +15,9 @@ const Services = () => {
     {
       icon: FileText,
       title: "Document Services",
-      description: "Barangay clearance, certificates, permits, and other official documents issued quickly and efficiently.",
-      features: ["Barangay Clearance", "Certificates", "Business Permits", "Residency Certificates"]
+      description: "Barangay clearance, certificates, permits, and other official documents issued quickly and efficiently through our online system.",
+      features: ["Barangay Clearance", "Certificate of Indigency", "Business Permit", "Certificate of Residency", "Barangay ID"],
+      link: "/login"
     },
     {
       icon: Shield,
@@ -81,8 +82,12 @@ const Services = () => {
                     </li>
                   ))}
                 </ul>
-                <Button variant="outline" className="group w-full">
-                  Learn More
+                <Button
+                  variant="outline"
+                  className="group w-full"
+                  onClick={() => service.link ? window.location.href = service.link : null}
+                >
+                  {service.link && service.title === "Document Services" ? "Apply Now" : "Learn More"}
                   <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </CardContent>

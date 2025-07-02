@@ -11,19 +11,19 @@ const Hero = () => {
           <div className="text-center lg:text-left">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground mb-6 leading-tight">
               Welcome to
-              <span className="block text-primary-glow">Barangay San Miguel</span>
+              <span className="block text-primary-glow">Barangay Almanza Dos</span>
             </h1>
             <p className="text-xl text-primary-foreground/90 mb-8 leading-relaxed">
-              Your trusted local government unit dedicated to serving our community with 
-              excellence, transparency, and unwavering commitment to progress and development.
+              Your trusted local government unit providing efficient document services
+              with our modern Document Management System.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <Button variant="civic" size="lg" className="group">
-                Explore Services
+              <Button variant="civic" size="lg" className="group" onClick={() => window.location.href = '/login'}>
+                Apply for Documents
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
-              <Button variant="outline" size="lg" className="border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary">
-                Contact Us
+              <Button variant="outline" size="lg" className="border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary" onClick={() => window.location.href = '/register'}>
+                Register Now
               </Button>
             </div>
           </div>
@@ -32,7 +32,7 @@ const Hero = () => {
             <div className="aspect-video rounded-2xl overflow-hidden shadow-strong">
               <img 
                 src={heroImage} 
-                alt="Barangay San Miguel Building" 
+                alt="Barangay Almanza Dos Building"
                 className="w-full h-full object-cover"
               />
             </div>

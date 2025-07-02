@@ -12,6 +12,8 @@ import { Application, ApplicationStatus } from '@/types';
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel } from '@/utils/helpers';
 import { APPLICATION_STATUS_CONFIG } from '@/utils/constants';
 
+import { supabase } from '@/lib/supabaseClient';
+
 const Applications = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -21,99 +23,67 @@ const Applications = () => {
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
 
+  // Fetch and subscribe to applications from Supabase
   useEffect(() => {
     if (!user) {
       navigate('/login');
       return;
     }
 
-    // Mock data for development
-    const mockApplications: Application[] = [
-      {
-        id: '1',
-        userId: user.id,
-        documentTypeId: '1',
-        purpose: 'Employment requirements for new job application',
-        status: 'completed',
-        submittedAt: new Date('2024-01-15'),
-        processedAt: new Date('2024-01-16'),
-        completedAt: new Date('2024-01-17'),
-        trackingNumber: 'BA202401001',
-        attachments: [],
-        documentType: {
-          id: '1',
-          name: 'Barangay Clearance',
-          description: 'Certificate of good standing',
-          requirements: [],
-          fee: 50,
-          processingTime: '1-2 days',
-          isActive: true
-        }
-      },
-      {
-        id: '2',
-        userId: user.id,
-        documentTypeId: '2',
-        purpose: 'School enrollment for my child',
-        status: 'pending',
-        submittedAt: new Date('2024-01-20'),
-        trackingNumber: 'BA202401002',
-        attachments: [],
-        documentType: {
-          id: '2',
-          name: 'Certificate of Residency',
-          description: 'Proof of residence',
-          requirements: [],
-          fee: 30,
-          processingTime: '1-2 days',
-          isActive: true
-        }
-      },
-      {
-        id: '3',
-        userId: user.id,
-        documentTypeId: '3',
-        purpose: 'Business permit application',
-        status: 'under_review',
-        submittedAt: new Date('2024-01-18'),
-        processedAt: new Date('2024-01-19'),
-        trackingNumber: 'BA202401003',
-        attachments: [],
-        documentType: {
-          id: '3',
-          name: 'Business Permit',
-          description: 'Permit to operate business',
-          requirements: [],
-          fee: 500,
-          processingTime: '5-7 days',
-          isActive: true
-        }
-      },
-      {
-        id: '4',
-        userId: user.id,
-        documentTypeId: '4',
-        purpose: 'Medical assistance application',
-        status: 'approved',
-        submittedAt: new Date('2024-01-12'),
-        processedAt: new Date('2024-01-14'),
-        trackingNumber: 'BA202401004',
-        attachments: [],
-        documentType: {
-          id: '4',
-          name: 'Certificate of Indigency',
-          description: 'Certificate for low-income families',
-          requirements: [],
-          fee: 0,
-          processingTime: '2-3 days',
-          isActive: true
-        }
-      }
-    ];
+    let subscription: any;
 
-    setApplications(mockApplications);
-    setFilteredApplications(mockApplications);
-    setIsLoading(false);
+    async function fetchApplications() {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('applications')
+        .select(`
+          *,
+          document_types:document_type_id (
+            id, name, description, requirements, fee, processing_time, is_active
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('submitted_at', { ascending: false });
+
+      if (error) {
+        setApplications([]);
+        setFilteredApplications([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Map document_types to documentType for compatibility
+      const apps = (data || []).map((app: any) => ({
+        ...app,
+        documentType: app.document_types,
+        submittedAt: app.submitted_at ? new Date(app.submitted_at) : undefined,
+        processedAt: app.processed_at ? new Date(app.processed_at) : undefined,
+        completedAt: app.completed_at ? new Date(app.completed_at) : undefined,
+        attachments: app.attachments || [],
+      }));
+
+      setApplications(apps);
+      setFilteredApplications(apps);
+      setIsLoading(false);
+    }
+
+    fetchApplications();
+
+    // Real-time subscription
+    subscription = supabase
+      .channel('applications')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'applications', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          fetchApplications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (subscription) supabase.removeChannel(subscription);
+    };
   }, [user, navigate]);
 
   useEffect(() => {

@@ -79,6 +79,19 @@ src/
 - Node.js 18+ and npm
 - Modern web browser
 
+### Environment Variables
+
+Create a `.env` file in the project root with your Supabase credentials:
+
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+Replace `your_supabase_url` and `your_supabase_anon_key` with the values from your Supabase project. **Do not share or commit your real keys publicly.**
+
+The app uses [Vite](https://vitejs.dev/), so these variables are available as `import.meta.env.VITE_SUPABASE_URL` and `import.meta.env.VITE_SUPABASE_ANON_KEY` in the code.
+
 ### Installation
 
 1. **Clone the repository**
@@ -126,6 +139,7 @@ Currently implements frontend-only authentication with localStorage for demo pur
 - ✅ Responsive design
 
 ### Phase 2 (Planned)
+
 - [ ] Backend integration with Supabase
 - [ ] File upload for document attachments
 - [ ] Email notifications for status updates
@@ -193,6 +207,21 @@ applications (
 ```bash
 npm run dev
 ```
+
+## 🗄 Supabase Client Setup
+
+The Supabase client is initialized in `src/lib/supabaseClient.ts`:
+
+```ts
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+```
+
+You can now import and use `supabase` throughout your app for authentication, database, and storage operations.
 
 ### Production Build
 ```bash

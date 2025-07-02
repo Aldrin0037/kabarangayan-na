@@ -6,13 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Application, User, DashboardStats } from '@/types';
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel } from '@/utils/helpers';
+import { supabase } from '@/lib/supabaseClient';
 
 const Admin = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [stats, setStats] = useState<DashboardStats>({
     totalApplications: 0,
     pendingApplications: 0,
@@ -25,6 +28,7 @@ const Admin = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Fetch data from Supabase
   useEffect(() => {
     if (!user) {
       navigate('/login');
@@ -36,125 +40,184 @@ const Admin = () => {
       return;
     }
 
-    // Mock data for development
-    const mockStats: DashboardStats = {
-      totalApplications: 45,
-      pendingApplications: 12,
-      approvedApplications: 8,
-      completedApplications: 20,
-      totalUsers: 150,
-      recentApplications: []
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch applications with user and document type data
+        const { data: applicationsData, error: applicationsError } = await supabase
+          .from('applications')
+          .select(`
+            *,
+            users:user_id (id, email, first_name, last_name, contact_number, address, role, is_active, created_at, updated_at),
+            document_types:document_type_id (id, name, description, requirements, fee, processing_time, is_active)
+          `)
+          .order('submitted_at', { ascending: false });
+
+        if (applicationsError) {
+          throw new Error(applicationsError.message);
+        }
+
+        // Fetch users
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (usersError) {
+          throw new Error(usersError.message);
+        }
+
+        // Transform data to match our types
+        const transformedApplications: Application[] = applicationsData.map(app => ({
+          id: app.id,
+          userId: app.user_id,
+          documentTypeId: app.document_type_id,
+          purpose: app.purpose,
+          status: app.status,
+          submittedAt: new Date(app.submitted_at),
+          processedAt: app.processed_at ? new Date(app.processed_at) : undefined,
+          processedBy: app.processed_by,
+          completedAt: app.completed_at ? new Date(app.completed_at) : undefined,
+          rejectionReason: app.rejection_reason,
+          trackingNumber: app.tracking_number,
+          attachments: app.attachments || [],
+          user: app.users ? {
+            id: app.users.id,
+            email: app.users.email,
+            firstName: app.users.first_name,
+            lastName: app.users.last_name,
+            contactNumber: app.users.contact_number,
+            address: app.users.address,
+            role: app.users.role,
+            isActive: app.users.is_active,
+            createdAt: new Date(app.users.created_at),
+            updatedAt: new Date(app.users.updated_at)
+          } : undefined,
+          documentType: app.document_types ? {
+            id: app.document_types.id,
+            name: app.document_types.name,
+            description: app.document_types.description,
+            requirements: app.document_types.requirements,
+            fee: app.document_types.fee,
+            processingTime: app.document_types.processing_time,
+            isActive: app.document_types.is_active
+          } : undefined
+        }));
+
+        const transformedUsers: User[] = usersData.map(u => ({
+          id: u.id,
+          email: u.email,
+          firstName: u.first_name,
+          lastName: u.last_name,
+          middleName: u.middle_name,
+          contactNumber: u.contact_number,
+          address: u.address,
+          role: u.role,
+          isActive: u.is_active,
+          createdAt: new Date(u.created_at),
+          updatedAt: new Date(u.updated_at)
+        }));
+
+        // Calculate stats
+        const stats: DashboardStats = {
+          totalApplications: transformedApplications.length,
+          pendingApplications: transformedApplications.filter(app => app.status === 'pending').length,
+          approvedApplications: transformedApplications.filter(app => app.status === 'approved').length,
+          completedApplications: transformedApplications.filter(app => app.status === 'completed').length,
+          totalUsers: transformedUsers.length,
+          recentApplications: transformedApplications.slice(0, 5)
+        };
+
+        setApplications(transformedApplications);
+        setUsers(transformedUsers);
+        setStats(stats);
+      } catch (error) {
+        console.error('Error fetching admin data:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load admin data. Please try again.',
+          variant: 'destructive'
+        });
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    const mockApplications: Application[] = [
-      {
-        id: '1',
-        userId: '1',
-        documentTypeId: '1',
-        purpose: 'Employment requirements',
-        status: 'pending',
-        submittedAt: new Date('2024-01-20'),
-        trackingNumber: 'BA202401001',
-        attachments: [],
-        user: {
-          id: '1',
-          email: 'juan@example.com',
-          firstName: 'Juan',
-          lastName: 'Dela Cruz',
-          contactNumber: '09123456789',
-          address: 'Sample Address',
-          role: 'resident',
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
+    fetchData();
+
+    // Set up real-time subscription for applications
+    const applicationsSubscription = supabase
+      .channel('admin-applications-changes')
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'applications'
         },
-        documentType: {
-          id: '1',
-          name: 'Barangay Clearance',
-          description: '',
-          requirements: [],
-          fee: 50,
-          processingTime: '1-2 days',
-          isActive: true
+        () => {
+          // Refresh data when changes occur
+          fetchData();
         }
-      },
-      {
-        id: '2',
-        userId: '2',
-        documentTypeId: '2',
-        purpose: 'School enrollment',
-        status: 'under_review',
-        submittedAt: new Date('2024-01-19'),
-        trackingNumber: 'BA202401002',
-        attachments: [],
-        user: {
-          id: '2',
-          email: 'maria@example.com',
-          firstName: 'Maria',
-          lastName: 'Santos',
-          contactNumber: '09123456788',
-          address: 'Sample Address 2',
-          role: 'resident',
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
+      )
+      .subscribe();
+
+    // Set up real-time subscription for users
+    const usersSubscription = supabase
+      .channel('admin-users-changes')
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'users'
         },
-        documentType: {
-          id: '2',
-          name: 'Certificate of Residency',
-          description: '',
-          requirements: [],
-          fee: 30,
-          processingTime: '1-2 days',
-          isActive: true
+        () => {
+          // Refresh data when changes occur
+          fetchData();
         }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions
+    return () => {
+      supabase.removeChannel(applicationsSubscription);
+      supabase.removeChannel(usersSubscription);
+    };
+  }, [user, navigate, toast]);
+
+  const handleProcessApplication = async (applicationId: string, action: 'approve' | 'reject') => {
+    try {
+      const newStatus = action === 'approve' ? 'approved' : 'rejected';
+      const now = new Date().toISOString();
+
+      // Update the application in Supabase
+      const { error } = await supabase
+        .from('applications')
+        .update({
+          status: newStatus,
+          processed_at: now,
+          processed_by: user?.id
+        })
+        .eq('id', applicationId);
+
+      if (error) {
+        throw new Error(error.message);
       }
-    ];
 
-    const mockUsers: User[] = [
-      {
-        id: '1',
-        email: 'juan@example.com',
-        firstName: 'Juan',
-        lastName: 'Dela Cruz',
-        contactNumber: '09123456789',
-        address: 'Sample Address, Las Piñas City',
-        role: 'resident',
-        isActive: true,
-        createdAt: new Date('2024-01-10'),
-        updatedAt: new Date('2024-01-15')
-      },
-      {
-        id: '2',
-        email: 'maria@example.com',
-        firstName: 'Maria',
-        lastName: 'Santos',
-        contactNumber: '09123456788',
-        address: 'Sample Address 2, Las Piñas City',
-        role: 'resident',
-        isActive: true,
-        createdAt: new Date('2024-01-12'),
-        updatedAt: new Date('2024-01-18')
-      }
-    ];
-
-    setStats(mockStats);
-    setApplications(mockApplications);
-    setUsers(mockUsers);
-    setIsLoading(false);
-  }, [user, navigate]);
-
-  const handleProcessApplication = (applicationId: string, action: 'approve' | 'reject') => {
-    setApplications(prev => prev.map(app => 
-      app.id === applicationId 
-        ? { 
-            ...app, 
-            status: action === 'approve' ? 'approved' : 'rejected',
-            processedAt: new Date(),
-            processedBy: user?.id
-          }
-        : app
-    ));
+      // No need to update local state; real-time subscription will refresh data
+      toast({
+        title: `Application ${action === 'approve' ? 'Approved' : 'Rejected'}`,
+        description: `The application has been successfully ${action === 'approve' ? 'approved' : 'rejected'}.`,
+        variant: 'default'
+      });
+    } catch (error) {
+      console.error(`Error ${action}ing application:`, error);
+      toast({
+        title: 'Error',
+        description: `Failed to ${action} the application. Please try again.`,
+        variant: 'destructive'
+      });
+    }
   };
 
   if (!user || user.role !== 'admin') return null;

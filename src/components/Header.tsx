@@ -13,6 +13,11 @@ const Header = () => {
     { name: "Contact", href: "#contact" },
   ];
 
+  const authLinks = [
+    { name: "Login", href: "/login" },
+    { name: "Register", href: "/register" },
+  ];
+
   return (
     <header className="bg-background shadow-soft border-b border-border">
       {/* Top contact bar */}
@@ -45,8 +50,8 @@ const Header = () => {
               <span className="text-primary-foreground font-bold text-lg">B</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Barangay San Miguel</h1>
-              <p className="text-sm text-muted-foreground">Serving the Community</p>
+              <h1 className="text-xl font-bold text-foreground">Barangay Almanza Dos</h1>
+              <p className="text-sm text-muted-foreground">Document Management System</p>
             </div>
           </div>
 
@@ -61,6 +66,17 @@ const Header = () => {
                 {item.name}
               </a>
             ))}
+            <div className="border-l border-border pl-6 flex items-center space-x-4">
+              {authLinks.map((item) => (
+                <a
+                  key={item.name}
+                  href={item.href}
+                  className="text-primary hover:text-primary/80 transition-smooth font-medium"
+                >
+                  {item.name}
+                </a>
+              ))}
+            </div>
           </nav>
 
           {/* Mobile menu button */}
@@ -89,6 +105,18 @@ const Header = () => {
                   {item.name}
                 </a>
               ))}
+              <div className="border-t border-border mt-2 pt-2">
+                {authLinks.map((item) => (
+                  <a
+                    key={item.name}
+                    href={item.href}
+                    className="block px-4 py-2 text-primary hover:text-primary/80 hover:bg-accent rounded-md transition-smooth"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {item.name}
+                  </a>
+                ))}
+              </div>
             </nav>
           </div>
         )}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Clock, CheckCircle, XCircle, Plus, User, LogOut } from 'lucide-react';
+import { FileText, Clock, CheckCircle, XCircle, Plus, User, LogOut, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Application, DashboardStats } from '@/types';
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel } from '@/utils/helpers';
+
+import { supabase } from '@/lib/supabaseClient';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -28,56 +30,78 @@ const Dashboard = () => {
       return;
     }
 
-    // Mock data for development
-    const mockStats: DashboardStats = {
-      totalApplications: 12,
-      pendingApplications: 3,
-      approvedApplications: 5,
-      completedApplications: 4,
-      totalUsers: user.role === 'admin' ? 150 : 0,
-      recentApplications: [
-        {
-          id: '1',
-          userId: user.id,
-          documentTypeId: '1',
-          purpose: 'Employment requirements',
-          status: 'completed',
-          submittedAt: new Date('2024-01-15'),
-          trackingNumber: 'BA202401001',
-          attachments: [],
-          documentType: {
-            id: '1',
-            name: 'Barangay Clearance',
-            description: '',
-            requirements: [],
-            fee: 50,
-            processingTime: '1-2 days',
-            isActive: true
-          }
-        },
-        {
-          id: '2',
-          userId: user.id,
-          documentTypeId: '2',
-          purpose: 'School enrollment',
-          status: 'pending',
-          submittedAt: new Date('2024-01-20'),
-          trackingNumber: 'BA202401002',
-          attachments: [],
-          documentType: {
-            id: '2',
-            name: 'Certificate of Residency',
-            description: '',
-            requirements: [],
-            fee: 30,
-            processingTime: '1-2 days',
-            isActive: true
-          }
-        }
-      ]
-    };
+    let subscription: any;
 
-    setStats(mockStats);
+    async function fetchStats() {
+      // Fetch applications for the user
+      const { data, error } = await supabase
+        .from('applications')
+        .select(`
+          *,
+          document_types:document_type_id (
+            id, name, description, requirements, fee, processing_time, is_active
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('submitted_at', { ascending: false });
+
+      if (error) {
+        setStats({
+          totalApplications: 0,
+          pendingApplications: 0,
+          approvedApplications: 0,
+          completedApplications: 0,
+          totalUsers: 0,
+          recentApplications: []
+        });
+        return;
+      }
+
+      // Map document_types to documentType for compatibility
+      const apps = (data || []).map((app: any) => ({
+        ...app,
+        documentType: app.document_types,
+        submittedAt: app.submitted_at ? new Date(app.submitted_at) : undefined,
+        processedAt: app.processed_at ? new Date(app.processed_at) : undefined,
+        completedAt: app.completed_at ? new Date(app.completed_at) : undefined,
+        attachments: app.attachments || [],
+      }));
+
+      // Calculate stats
+      const totalApplications = apps.length;
+      const pendingApplications = apps.filter((a) => a.status === 'pending').length;
+      const approvedApplications = apps.filter((a) => a.status === 'approved').length;
+      const completedApplications = apps.filter((a) => a.status === 'completed').length;
+      // Show up to 5 most recent applications
+      const recentApplications = apps.slice(0, 5);
+
+      setStats({
+        totalApplications,
+        pendingApplications,
+        approvedApplications,
+        completedApplications,
+        totalUsers: user.role === 'admin' ? 0 : 0, // You can implement admin stats separately
+        recentApplications
+      });
+    }
+
+    fetchStats();
+
+    // Real-time subscription
+    subscription = supabase
+      .channel('dashboard-applications')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'applications', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          fetchStats();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (subscription) supabase.removeChannel(subscription);
+    };
   }, [user, navigate]);
 
   const handleLogout = () => {
@@ -263,13 +287,28 @@ const Dashboard = () => {
                         )}
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/applications/${application.id}`)}
-                    >
-                      View Details
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/applications/${application.id}`)}
+                      >
+                        View Details
+                      </Button>
+                      {application.status === 'completed' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            // TODO: Implement download functionality
+                            console.log('Download document:', application.id);
+                          }}
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Download
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
