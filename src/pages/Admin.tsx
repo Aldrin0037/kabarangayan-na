@@ -134,39 +134,38 @@ const Admin = () => {
     setIsLoading(false);
   }, [user, navigate]);
 
-  const handleProcessApplication = async (applicationId: string, action: 'approve' | 'reject') => {
-    try {
-      const newStatus = action === 'approve' ? 'approved' : 'rejected';
-      const now = new Date().toISOString();
-
-      // Update the application in Supabase
-      const { error } = await supabase
-        .from('applications')
-        .update({
-          status: newStatus,
-          processed_at: now,
-          processed_by: user?.id
-        })
-        .eq('id', applicationId);
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      // No need to update local state; real-time subscription will refresh data
+  // Update mock data for Approve/Reject actions
+  const handleProcessApplication = (applicationId: string, action: 'approve' | 'reject') => {
+    setApplications(prevApps => {
+      const updatedApps = prevApps.map(app => {
+        if (app.id === applicationId) {
+          return {
+            ...app,
+            status: action === 'approve' ? 'approved' : 'rejected',
+            processedAt: new Date(),
+            processedBy: user?.id,
+            rejectionReason: action === 'reject' ? 'Rejected by admin' : undefined
+          };
+        }
+        return app;
+      });
+      // Update stats as well
+      const stats: DashboardStats = {
+        totalApplications: updatedApps.length,
+        pendingApplications: updatedApps.filter(app => app.status === 'pending').length,
+        approvedApplications: updatedApps.filter(app => app.status === 'approved').length,
+        completedApplications: updatedApps.filter(app => app.status === 'completed').length,
+        totalUsers: users.length,
+        recentApplications: updatedApps.slice(0, 5)
+      };
+      setStats(stats);
       toast({
         title: `Application ${action === 'approve' ? 'Approved' : 'Rejected'}`,
         description: `The application has been successfully ${action === 'approve' ? 'approved' : 'rejected'}.`,
         variant: 'default'
       });
-    } catch (error) {
-      console.error(`Error ${action}ing application:`, error);
-      toast({
-        title: 'Error',
-        description: `Failed to ${action} the application. Please try again.`,
-        variant: 'destructive'
-      });
-    }
+      return updatedApps;
+    });
   };
 
   if (!user || user.role !== 'admin') return null;
