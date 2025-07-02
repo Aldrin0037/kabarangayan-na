@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Clock, CheckCircle, XCircle, Plus, User, LogOut, Download } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Application, DashboardStats } from '@/types';
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel } from '@/utils/helpers';
 
-import { supabase } from '@/lib/supabaseClient';
+// import { supabase } from '@/lib/supabaseClient';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -23,6 +24,8 @@ const Dashboard = () => {
     totalUsers: 0,
     recentApplications: []
   });
+  const [selectedApp, setSelectedApp] = useState<any | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -30,78 +33,27 @@ const Dashboard = () => {
       return;
     }
 
-    let subscription: any;
+    // Mock applications for the user
+    const mockApplications = JSON.parse(localStorage.getItem('mockApplications') || '[]');
+    const userApps = mockApplications.filter((app: any) => app.userId === user.id);
+    // Sort by submittedAt descending
+    userApps.sort((a: any, b: any) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
 
-    async function fetchStats() {
-      // Fetch applications for the user
-      const { data, error } = await supabase
-        .from('applications')
-        .select(`
-          *,
-          document_types:document_type_id (
-            id, name, description, requirements, fee, processing_time, is_active
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('submitted_at', { ascending: false });
+    // Calculate stats
+    const totalApplications = userApps.length;
+    const pendingApplications = userApps.filter((a: any) => a.status === 'pending').length;
+    const approvedApplications = userApps.filter((a: any) => a.status === 'approved').length;
+    const completedApplications = userApps.filter((a: any) => a.status === 'completed').length;
+    const recentApplications = userApps.slice(0, 5);
 
-      if (error) {
-        setStats({
-          totalApplications: 0,
-          pendingApplications: 0,
-          approvedApplications: 0,
-          completedApplications: 0,
-          totalUsers: 0,
-          recentApplications: []
-        });
-        return;
-      }
-
-      // Map document_types to documentType for compatibility
-      const apps = (data || []).map((app: any) => ({
-        ...app,
-        documentType: app.document_types,
-        submittedAt: app.submitted_at ? new Date(app.submitted_at) : undefined,
-        processedAt: app.processed_at ? new Date(app.processed_at) : undefined,
-        completedAt: app.completed_at ? new Date(app.completed_at) : undefined,
-        attachments: app.attachments || [],
-      }));
-
-      // Calculate stats
-      const totalApplications = apps.length;
-      const pendingApplications = apps.filter((a) => a.status === 'pending').length;
-      const approvedApplications = apps.filter((a) => a.status === 'approved').length;
-      const completedApplications = apps.filter((a) => a.status === 'completed').length;
-      // Show up to 5 most recent applications
-      const recentApplications = apps.slice(0, 5);
-
-      setStats({
-        totalApplications,
-        pendingApplications,
-        approvedApplications,
-        completedApplications,
-        totalUsers: user.role === 'admin' ? 0 : 0, // You can implement admin stats separately
-        recentApplications
-      });
-    }
-
-    fetchStats();
-
-    // Real-time subscription
-    subscription = supabase
-      .channel('dashboard-applications')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'applications', filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          fetchStats();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      if (subscription) supabase.removeChannel(subscription);
-    };
+    setStats({
+      totalApplications,
+      pendingApplications,
+      approvedApplications,
+      completedApplications,
+      totalUsers: 0,
+      recentApplications
+    });
   }, [user, navigate]);
 
   const handleLogout = () => {
@@ -121,15 +73,17 @@ const Dashboard = () => {
       <header className="border-b bg-background/95 backdrop-blur">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-primary">
-                Barangay Almanza Dos
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Document Management System
-              </p>
+            <div className="flex items-center gap-6">
+              <a href="/" className="flex items-center gap-2 group">
+                <img src="/favicon.ico" alt="Logo" className="w-8 h-8" />
+                <span className="text-2xl font-bold text-primary group-hover:underline">Barangay Almanza Dos</span>
+              </a>
+              <span className="hidden md:inline text-sm text-muted-foreground border-l pl-6 ml-2">Document Management System</span>
             </div>
             <div className="flex items-center gap-4">
+              <a href="/" className="text-sm font-medium text-primary hover:underline transition-colors px-3 py-2 rounded-md bg-accent/50 border border-accent">
+                Go to Homepage
+              </a>
               <div className="text-right">
                 <p className="font-medium">
                   {user.firstName} {user.lastName}
@@ -291,7 +245,10 @@ const Dashboard = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => navigate(`/applications/${application.id}`)}
+                        onClick={() => {
+                          setSelectedApp(application);
+                          setDialogOpen(true);
+                        }}
                       >
                         View Details
                       </Button>
@@ -327,6 +284,55 @@ const Dashboard = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Application Details Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="max-w-lg w-full">
+            <DialogHeader>
+              <DialogTitle>Application Details</DialogTitle>
+              <DialogDescription>
+                Review your application information and status.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedApp && (
+              <div className="space-y-4">
+                <div>
+                  <span className="font-semibold">Document Type:</span> {selectedApp.documentType?.name}
+                </div>
+                <div>
+                  <span className="font-semibold">Purpose:</span> {selectedApp.purpose}
+                </div>
+                <div>
+                  <span className="font-semibold">Status:</span> <Badge className={getStatusColor(selectedApp.status)}>{getStatusLabel(selectedApp.status)}</Badge>
+                </div>
+                <div>
+                  <span className="font-semibold">Tracking Number:</span> {selectedApp.trackingNumber}
+                </div>
+                <div>
+                  <span className="font-semibold">Submitted:</span> {formatDate(selectedApp.submittedAt)}
+                </div>
+                {selectedApp.attachments && selectedApp.attachments.length > 0 && (
+                  <div>
+                    <span className="font-semibold">Attachments:</span>
+                    <ul className="list-disc pl-5 mt-1 text-sm">
+                      {selectedApp.attachments.map((file: any, idx: number) => (
+                        <li key={idx}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {selectedApp.rejectionReason && (
+                  <div>
+                    <span className="font-semibold text-destructive">Rejection Reason:</span> {selectedApp.rejectionReason}
+                  </div>
+                )}
+              </div>
+            )}
+            <DialogClose asChild>
+              <Button className="mt-6 w-full" variant="civic">Close</Button>
+            </DialogClose>
+          </DialogContent>
+        </Dialog>
 
         {/* Admin Panel Access */}
         {user.role === 'admin' && (

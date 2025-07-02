@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { applicationSchema, ApplicationFormData } from '@/lib/validations';
 import { formatCurrency } from '@/utils/helpers';
-import { supabase } from '@/lib/supabaseClient';
+// import { supabase } from '@/lib/supabaseClient';
 
 interface DocumentType {
   id: string;
@@ -57,21 +57,55 @@ const NewApplication = () => {
       return;
     }
 
-    async function fetchDocumentTypes() {
-      const { data, error } = await supabase
-        .from('document_types')
-        .select('*')
-        .eq('is_active', true)
-        .order('name', { ascending: true });
-
-      if (error) {
-        setDocumentTypes([]);
-        return;
+    // Mock document types for development
+    const mockDocumentTypes: DocumentType[] = [
+      {
+        id: '1',
+        name: 'Barangay Clearance',
+        description: 'Certificate of good standing',
+        requirements: ['Valid ID', 'Proof of Residency'],
+        fee: 50,
+        processingTime: '1-2 business days',
+        isActive: true
+      },
+      {
+        id: '2',
+        name: 'Certificate of Indigency',
+        description: 'For low-income families',
+        requirements: ['Barangay Certificate', 'Proof of Income'],
+        fee: 0,
+        processingTime: '1 business day',
+        isActive: true
+      },
+      {
+        id: '3',
+        name: 'Business Permit',
+        description: 'Permit to operate business',
+        requirements: ['DTI/SEC Registration', 'Lease Contract'],
+        fee: 500,
+        processingTime: '3-5 business days',
+        isActive: true
+      },
+      {
+        id: '4',
+        name: 'Certificate of Residency',
+        description: 'Proof of residence',
+        requirements: ['Valid ID', 'Barangay Certificate'],
+        fee: 30,
+        processingTime: '1 business day',
+        isActive: true
+      },
+      {
+        id: '5',
+        name: 'Barangay ID',
+        description: 'Official barangay identification',
+        requirements: ['Birth Certificate', 'Proof of Residency'],
+        fee: 100,
+        processingTime: '2-3 business days',
+        isActive: true
       }
-      setDocumentTypes(data || []);
-    }
-
-    fetchDocumentTypes();
+    ];
+    setDocumentTypes(mockDocumentTypes);
   }, [user, navigate]);
 
   useEffect(() => {
@@ -95,8 +129,6 @@ const NewApplication = () => {
     if (!user) return;
     setIsLoading(true);
     try {
-      // TODO: Handle file uploads to Supabase Storage and store metadata in attachments table
-      // For now, just store file names in attachments field
       const attachmentsMeta = files.map(file => ({
         name: file.name,
         size: file.size,
@@ -106,18 +138,25 @@ const NewApplication = () => {
       // Generate a tracking number (simple example)
       const trackingNumber = `BA${Date.now()}`;
 
-      const { error } = await supabase.from('applications').insert([
-        {
-          user_id: user.id,
-          document_type_id: data.documentTypeId,
-          purpose: data.purpose,
-          status: 'pending',
-          tracking_number: trackingNumber,
-          attachments: attachmentsMeta
-        }
-      ]);
-
-      if (error) throw error;
+      // Mock submit: save to localStorage
+      const mockApplications = JSON.parse(localStorage.getItem('mockApplications') || '[]');
+      const newApplication = {
+        id: Date.now().toString(),
+        userId: user.id,
+        documentTypeId: data.documentTypeId,
+        documentType: documentTypes.find(dt => dt.id === data.documentTypeId),
+        purpose: data.purpose,
+        status: 'pending',
+        trackingNumber: trackingNumber,
+        attachments: attachmentsMeta,
+        submittedAt: new Date().toISOString(),
+        processedAt: null,
+        completedAt: null,
+        processedBy: null,
+        rejectionReason: null
+      };
+      mockApplications.unshift(newApplication);
+      localStorage.setItem('mockApplications', JSON.stringify(mockApplications));
 
       toast({
         title: 'Application submitted',

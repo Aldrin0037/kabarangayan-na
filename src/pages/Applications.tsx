@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Plus, Search, Filter, Download, Eye } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +13,7 @@ import { Application, ApplicationStatus } from '@/types';
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel } from '@/utils/helpers';
 import { APPLICATION_STATUS_CONFIG } from '@/utils/constants';
 
-import { supabase } from '@/lib/supabaseClient';
+// import { supabase } from '@/lib/supabaseClient';
 
 const Applications = () => {
   const { user } = useAuth();
@@ -22,6 +23,8 @@ const Applications = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedApp, setSelectedApp] = useState<any | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   // Fetch and subscribe to applications from Supabase
   useEffect(() => {
@@ -30,60 +33,15 @@ const Applications = () => {
       return;
     }
 
-    let subscription: any;
-
-    async function fetchApplications() {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('applications')
-        .select(`
-          *,
-          document_types:document_type_id (
-            id, name, description, requirements, fee, processing_time, is_active
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('submitted_at', { ascending: false });
-
-      if (error) {
-        setApplications([]);
-        setFilteredApplications([]);
-        setIsLoading(false);
-        return;
-      }
-
-      // Map document_types to documentType for compatibility
-      const apps = (data || []).map((app: any) => ({
-        ...app,
-        documentType: app.document_types,
-        submittedAt: app.submitted_at ? new Date(app.submitted_at) : undefined,
-        processedAt: app.processed_at ? new Date(app.processed_at) : undefined,
-        completedAt: app.completed_at ? new Date(app.completed_at) : undefined,
-        attachments: app.attachments || [],
-      }));
-
-      setApplications(apps);
-      setFilteredApplications(apps);
-      setIsLoading(false);
-    }
-
-    fetchApplications();
-
-    // Real-time subscription
-    subscription = supabase
-      .channel('applications')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'applications', filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          fetchApplications();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      if (subscription) supabase.removeChannel(subscription);
-    };
+    // Fetch applications from localStorage (mock)
+    setIsLoading(true);
+    const mockApplications = JSON.parse(localStorage.getItem('mockApplications') || '[]');
+    const userApps = mockApplications.filter((app: any) => app.userId === user.id);
+    // Sort by submittedAt descending
+    userApps.sort((a: any, b: any) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+    setApplications(userApps);
+    setFilteredApplications(userApps);
+    setIsLoading(false);
   }, [user, navigate]);
 
   useEffect(() => {
@@ -235,11 +193,110 @@ const Applications = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => navigate(`/applications/${application.id}`)}
+                              onClick={() => {
+                                setSelectedApp(application);
+                                setDialogOpen(true);
+                              }}
                             >
                               <Eye className="w-4 h-4 mr-1" />
                               View
                             </Button>
+      {/* Application Details Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle>Application Details</DialogTitle>
+            <DialogDescription>
+              Review your application information and status.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedApp && (
+            <div className="space-y-4">
+              <div>
+                <span className="font-semibold">Document Type:</span> {selectedApp.documentType?.name}
+              </div>
+              <div>
+                <span className="font-semibold">Purpose:</span> {selectedApp.purpose}
+              </div>
+              <div>
+                <span className="font-semibold">Status:</span> <Badge className={getStatusColor(selectedApp.status)}>{getStatusLabel(selectedApp.status)}</Badge>
+              </div>
+              <div>
+                <span className="font-semibold">Tracking Number:</span> {selectedApp.trackingNumber}
+              </div>
+              <div>
+                <span className="font-semibold">Submitted:</span> {formatDate(selectedApp.submittedAt)}
+              </div>
+              {selectedApp.attachments && selectedApp.attachments.length > 0 && (
+                <div>
+                  <span className="font-semibold">Attachments:</span>
+                  <ul className="list-disc pl-5 mt-1 text-sm">
+                    {selectedApp.attachments.map((file: any, idx: number) => (
+                      <li key={idx}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {selectedApp.rejectionReason && (
+                <div>
+                  <span className="font-semibold text-destructive">Rejection Reason:</span> {selectedApp.rejectionReason}
+                </div>
+              )}
+            </div>
+          )}
+          <DialogClose asChild>
+            <Button className="mt-6 w-full" variant="civic">Close</Button>
+          </DialogClose>
+        </DialogContent>
+      </Dialog>
+      {/* Application Details Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle>Application Details</DialogTitle>
+            <DialogDescription>
+              Review your application information and status.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedApp && (
+            <div className="space-y-4">
+              <div>
+                <span className="font-semibold">Document Type:</span> {selectedApp.documentType?.name}
+              </div>
+              <div>
+                <span className="font-semibold">Purpose:</span> {selectedApp.purpose}
+              </div>
+              <div>
+                <span className="font-semibold">Status:</span> <Badge className={getStatusColor(selectedApp.status)}>{getStatusLabel(selectedApp.status)}</Badge>
+              </div>
+              <div>
+                <span className="font-semibold">Tracking Number:</span> {selectedApp.trackingNumber}
+              </div>
+              <div>
+                <span className="font-semibold">Submitted:</span> {formatDate(selectedApp.submittedAt)}
+              </div>
+              {selectedApp.attachments && selectedApp.attachments.length > 0 && (
+                <div>
+                  <span className="font-semibold">Attachments:</span>
+                  <ul className="list-disc pl-5 mt-1 text-sm">
+                    {selectedApp.attachments.map((file: any, idx: number) => (
+                      <li key={idx}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {selectedApp.rejectionReason && (
+                <div>
+                  <span className="font-semibold text-destructive">Rejection Reason:</span> {selectedApp.rejectionReason}
+                </div>
+              )}
+            </div>
+          )}
+          <DialogClose asChild>
+            <Button className="mt-6 w-full" variant="civic">Close</Button>
+          </DialogClose>
+        </DialogContent>
+      </Dialog>
                             {application.status === 'completed' && (
                               <Button
                                 variant="outline"

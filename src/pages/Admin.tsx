@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Application, User, DashboardStats } from '@/types';
 import { formatDate, formatCurrency, getStatusColor, getStatusLabel } from '@/utils/helpers';
-import { supabase } from '@/lib/supabaseClient';
+
 
 const Admin = () => {
   const { user } = useAuth();
@@ -28,162 +28,111 @@ const Admin = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch data from Supabase
+  // Use mock data for admin panel (no Supabase)
   useEffect(() => {
     if (!user) {
       navigate('/login');
       return;
     }
-
     if (user.role !== 'admin') {
       navigate('/dashboard');
       return;
     }
-
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Fetch applications with user and document type data
-        const { data: applicationsData, error: applicationsError } = await supabase
-          .from('applications')
-          .select(`
-            *,
-            users:user_id (id, email, first_name, last_name, contact_number, address, role, is_active, created_at, updated_at),
-            document_types:document_type_id (id, name, description, requirements, fee, processing_time, is_active)
-          `)
-          .order('submitted_at', { ascending: false });
-
-        if (applicationsError) {
-          throw new Error(applicationsError.message);
-        }
-
-        // Fetch users
-        const { data: usersData, error: usersError } = await supabase
-          .from('users')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (usersError) {
-          throw new Error(usersError.message);
-        }
-
-        // Transform data to match our types
-        const transformedApplications: Application[] = applicationsData.map(app => ({
-          id: app.id,
-          userId: app.user_id,
-          documentTypeId: app.document_type_id,
-          purpose: app.purpose,
-          status: app.status,
-          submittedAt: new Date(app.submitted_at),
-          processedAt: app.processed_at ? new Date(app.processed_at) : undefined,
-          processedBy: app.processed_by,
-          completedAt: app.completed_at ? new Date(app.completed_at) : undefined,
-          rejectionReason: app.rejection_reason,
-          trackingNumber: app.tracking_number,
-          attachments: app.attachments || [],
-          user: app.users ? {
-            id: app.users.id,
-            email: app.users.email,
-            firstName: app.users.first_name,
-            lastName: app.users.last_name,
-            contactNumber: app.users.contact_number,
-            address: app.users.address,
-            role: app.users.role,
-            isActive: app.users.is_active,
-            createdAt: new Date(app.users.created_at),
-            updatedAt: new Date(app.users.updated_at)
-          } : undefined,
-          documentType: app.document_types ? {
-            id: app.document_types.id,
-            name: app.document_types.name,
-            description: app.document_types.description,
-            requirements: app.document_types.requirements,
-            fee: app.document_types.fee,
-            processingTime: app.document_types.processing_time,
-            isActive: app.document_types.is_active
-          } : undefined
-        }));
-
-        const transformedUsers: User[] = usersData.map(u => ({
-          id: u.id,
-          email: u.email,
-          firstName: u.first_name,
-          lastName: u.last_name,
-          middleName: u.middle_name,
-          contactNumber: u.contact_number,
-          address: u.address,
-          role: u.role,
-          isActive: u.is_active,
-          createdAt: new Date(u.created_at),
-          updatedAt: new Date(u.updated_at)
-        }));
-
-        // Calculate stats
-        const stats: DashboardStats = {
-          totalApplications: transformedApplications.length,
-          pendingApplications: transformedApplications.filter(app => app.status === 'pending').length,
-          approvedApplications: transformedApplications.filter(app => app.status === 'approved').length,
-          completedApplications: transformedApplications.filter(app => app.status === 'completed').length,
-          totalUsers: transformedUsers.length,
-          recentApplications: transformedApplications.slice(0, 5)
-        };
-
-        setApplications(transformedApplications);
-        setUsers(transformedUsers);
-        setStats(stats);
-      } catch (error) {
-        console.error('Error fetching admin data:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load admin data. Please try again.',
-          variant: 'destructive'
-        });
-      } finally {
-        setIsLoading(false);
+    setIsLoading(true);
+    // Mock users
+    const mockUsers: User[] = [
+      {
+        id: '1',
+        email: 'admin@example.com',
+        firstName: 'Juan',
+        lastName: 'Dela Cruz',
+        middleName: 'S',
+        contactNumber: '09123456789',
+        address: 'Sample Address, Las Piñas City',
+        role: 'admin',
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+        updatedAt: new Date('2024-06-01')
+      },
+      {
+        id: '2',
+        email: 'resident@example.com',
+        firstName: 'Maria',
+        lastName: 'Santos',
+        middleName: 'L',
+        contactNumber: '09998887777',
+        address: 'Another Address, Las Piñas City',
+        role: 'resident',
+        isActive: true,
+        createdAt: new Date('2024-02-01'),
+        updatedAt: new Date('2024-06-01')
       }
-    };
-
-    fetchData();
-
-    // Set up real-time subscription for applications
-    const applicationsSubscription = supabase
-      .channel('admin-applications-changes')
-      .on('postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'applications'
-        },
-        () => {
-          // Refresh data when changes occur
-          fetchData();
+    ];
+    // Mock applications
+    const mockApplications: Application[] = [
+      {
+        id: 'a1',
+        userId: '2',
+        documentTypeId: 'd1',
+        purpose: 'Barangay Clearance for employment',
+        status: 'pending',
+        submittedAt: new Date('2025-06-20'),
+        processedAt: undefined,
+        processedBy: undefined,
+        completedAt: undefined,
+        rejectionReason: undefined,
+        attachments: [],
+        trackingNumber: 'BRGY-20250620-001',
+        user: mockUsers[1],
+        documentType: {
+          id: 'd1',
+          name: 'Barangay Clearance',
+          description: 'A clearance issued by the barangay.',
+          requirements: ['Valid ID', 'Proof of Address'],
+          fee: 50,
+          processingTime: '1-2 days',
+          isActive: true
         }
-      )
-      .subscribe();
-
-    // Set up real-time subscription for users
-    const usersSubscription = supabase
-      .channel('admin-users-changes')
-      .on('postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'users'
-        },
-        () => {
-          // Refresh data when changes occur
-          fetchData();
+      },
+      {
+        id: 'a2',
+        userId: '2',
+        documentTypeId: 'd2',
+        purpose: 'Indigency certificate for scholarship',
+        status: 'approved',
+        submittedAt: new Date('2025-06-15'),
+        processedAt: new Date('2025-06-16'),
+        processedBy: '1',
+        completedAt: undefined,
+        rejectionReason: undefined,
+        attachments: [],
+        trackingNumber: 'BRGY-20250615-002',
+        user: mockUsers[1],
+        documentType: {
+          id: 'd2',
+          name: 'Certificate of Indigency',
+          description: 'Proof of indigency for various purposes.',
+          requirements: ['Barangay Clearance'],
+          fee: 0,
+          processingTime: '1 day',
+          isActive: true
         }
-      )
-      .subscribe();
-
-    // Cleanup subscriptions
-    return () => {
-      supabase.removeChannel(applicationsSubscription);
-      supabase.removeChannel(usersSubscription);
+      }
+    ];
+    // Calculate stats
+    const stats: DashboardStats = {
+      totalApplications: mockApplications.length,
+      pendingApplications: mockApplications.filter(app => app.status === 'pending').length,
+      approvedApplications: mockApplications.filter(app => app.status === 'approved').length,
+      completedApplications: mockApplications.filter(app => app.status === 'completed').length,
+      totalUsers: mockUsers.length,
+      recentApplications: mockApplications.slice(0, 5)
     };
-  }, [user, navigate, toast]);
+    setApplications(mockApplications);
+    setUsers(mockUsers);
+    setStats(stats);
+    setIsLoading(false);
+  }, [user, navigate]);
 
   const handleProcessApplication = async (applicationId: string, action: 'approve' | 'reject') => {
     try {
