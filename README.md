@@ -1,73 +1,230 @@
-# Welcome to your Lovable project
+# Barangay Almanza Dos - Document Management System
 
-## Project info
+A modern web application for managing barangay document applications and services in Las Piñas City, Metro Manila.
 
-**URL**: https://lovable.dev/projects/557307c8-65ff-4a10-8bf4-50881cfdf5a4
+## 🌟 Features
 
-## How can I edit this code?
+### For Residents
+- **User Registration & Authentication** - Secure account creation and login
+- **Document Applications** - Apply for various barangay documents online
+- **Application Tracking** - Real-time status updates with tracking numbers
+- **Dashboard** - Personal overview of applications and account status
+- **Document Download** - Download completed documents digitally
 
-There are several ways of editing your application.
+### For Administrators
+- **Admin Panel** - Comprehensive management dashboard
+- **Application Processing** - Review, approve, or reject applications
+- **User Management** - Manage resident accounts and permissions
+- **Reports & Analytics** - Generate reports and view system statistics
+- **Document Type Management** - Configure available documents and requirements
 
-**Use Lovable**
+## 📋 Available Documents
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/557307c8-65ff-4a10-8bf4-50881cfdf5a4) and start prompting.
+1. **Barangay Clearance** (₱50) - Certificate of good standing
+2. **Certificate of Indigency** (Free) - For low-income families
+3. **Business Permit** (₱500) - Permit to operate business
+4. **Certificate of Residency** (₱30) - Proof of residence
+5. **Barangay ID** (₱100) - Official barangay identification
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🛠 Technology Stack
 
-**Use your preferred IDE**
+- **Frontend Framework**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS with custom design system
+- **UI Components**: shadcn/ui
+- **Routing**: React Router v6
+- **Form Handling**: React Hook Form with Zod validation
+- **State Management**: React Context + Local Storage
+- **Icons**: Lucide React
+- **Notifications**: Sonner
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 🎨 Design System
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+The application uses a Philippine government-inspired color scheme with:
+- **Primary Colors**: Blues and greens representing civic trust
+- **Typography**: Clear, accessible fonts for government services
+- **Components**: Consistent UI patterns following shadcn/ui design principles
+- **Responsive Design**: Mobile-first approach for accessibility
 
-Follow these steps:
+## 📁 Project Structure
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+```
+src/
+├── components/          # Reusable UI components
+│   ├── ui/             # shadcn/ui components
+│   ├── forms/          # Form-specific components
+│   └── dashboard/      # Dashboard-specific components
+├── pages/              # Page components
+│   ├── Index.tsx       # Landing page
+│   ├── Login.tsx       # Authentication
+│   ├── Register.tsx    # User registration
+│   ├── Dashboard.tsx   # User dashboard
+│   ├── Applications.tsx # Application management
+│   └── Admin.tsx       # Admin panel
+├── hooks/              # Custom React hooks
+│   └── useAuth.ts      # Authentication logic
+├── lib/                # Utility libraries
+│   └── validations.ts  # Zod validation schemas
+├── types/              # TypeScript type definitions
+│   └── index.ts        # Application types
+├── utils/              # Helper functions
+│   ├── constants.ts    # Application constants
+│   └── helpers.ts      # Utility functions
+└── main.tsx           # Application entry point
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## 🚀 Getting Started
 
-# Step 3: Install the necessary dependencies.
-npm i
+### Prerequisites
+- Node.js 18+ and npm
+- Modern web browser
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd barangay-document-management
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+4. **Open your browser**
+   Navigate to `http://localhost:5173`
+
+### Demo Accounts
+
+For testing purposes, the application includes mock authentication:
+
+- **Regular User**: Any email/password combination
+- **Admin User**: Use email containing "admin" (e.g., admin@example.com)
+
+## 🔐 Authentication & Security
+
+Currently implements frontend-only authentication with localStorage for demo purposes. For production deployment:
+
+- Integrate with Supabase for backend authentication
+- Implement proper JWT token validation
+- Add password hashing and security measures
+- Set up role-based access control (RBAC)
+
+## 📱 Features Roadmap
+
+### Phase 1 (Current)
+- ✅ User registration and authentication
+- ✅ Document application forms
+- ✅ Application tracking system
+- ✅ Admin panel for processing
+- ✅ Responsive design
+
+### Phase 2 (Planned)
+- [ ] Backend integration with Supabase
+- [ ] File upload for document attachments
+- [ ] Email notifications for status updates
+- [ ] Digital document generation (PDF)
+- [ ] Payment integration for fees
+
+### Phase 3 (Future)
+- [ ] Mobile app development
+- [ ] Digital signatures
+- [ ] Appointment scheduling
+- [ ] SMS notifications
+- [ ] Advanced reporting and analytics
+
+## 🏗 Backend Integration
+
+This application is designed to integrate with Supabase for production use:
+
+### Database Schema
+```sql
+-- Users table
+users (
+  id UUID PRIMARY KEY,
+  email TEXT UNIQUE,
+  first_name TEXT,
+  last_name TEXT,
+  middle_name TEXT,
+  contact_number TEXT,
+  address TEXT,
+  role TEXT DEFAULT 'resident',
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+)
+
+-- Document types table
+document_types (
+  id UUID PRIMARY KEY,
+  name TEXT,
+  description TEXT,
+  requirements TEXT[],
+  fee DECIMAL,
+  processing_time TEXT,
+  is_active BOOLEAN DEFAULT true
+)
+
+-- Applications table
+applications (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  document_type_id UUID REFERENCES document_types(id),
+  purpose TEXT,
+  status TEXT DEFAULT 'pending',
+  submitted_at TIMESTAMP,
+  processed_at TIMESTAMP,
+  completed_at TIMESTAMP,
+  processed_by UUID REFERENCES users(id),
+  rejection_reason TEXT,
+  tracking_number TEXT UNIQUE
+)
+```
+
+## 🚀 Deployment
+
+### Development
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Production Build
+```bash
+npm run build
+npm run preview
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Deployment Options
+- **Vercel**: Automatic deployment from Git
+- **Netlify**: Static site hosting
+- **GitHub Pages**: Free hosting for public repositories
 
-**Use GitHub Codespaces**
+## 📄 License
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+This project is intended for educational and demonstration purposes. For production use in actual government services, ensure compliance with local regulations and data privacy laws.
 
-## What technologies are used for this project?
+## 🤝 Contributing
 
-This project is built with:
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a Pull Request
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 📞 Support
 
-## How can I deploy this project?
+For questions or support regarding this document management system:
 
-Simply open [Lovable](https://lovable.dev/projects/557307c8-65ff-4a10-8bf4-50881cfdf5a4) and click on Share -> Publish.
+- **Barangay Office**: Monday to Friday, 8:00 AM - 5:00 PM
+- **Contact**: +63 2 8872-1234
+- **Email**: almanzados@laspinas.gov.ph
 
-## Can I connect a custom domain to my Lovable project?
+---
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+**Barangay Almanza Dos** - Serving the community with modern, efficient digital services.
